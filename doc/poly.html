@@ -1,0 +1,360 @@
+<head>
+<title>Poly documentation</title>
+</head>
+<body>
+
+<h1><i>Poly</i> - a polynomial desk-calculator</h1>
+
+<p><i>Poly</i> is a simple programming language for
+manipulating polynomials.  For example, here is a program
+to calculate and print the first 10 Chebyshev polynomials,
+using the recurrence <i>T</i><sub><i>n</i>+1</sub>(<i>x</i>)=2<i>x</i><i>T</i><sub><i>n</i></sub>(<i>x</i>)-<i>T</i><sub><i>n</i>-1</sub>(<i>x</i>).
+<pre>
+	t0=1;
+	print t0;
+	t1=x;
+	print t1;
+	for(i=2;i!=10;i++){
+		t2=2*x*t1-t0
+		print t2
+		t0=t1
+		t1=t2
+	};
+</pre>
+
+And here is its output
+
+<pre>
+	1
+	x
+	-1+2*x^2
+	-3*x+4*x^3
+	1-8*x^2+8*x^4
+	5*x-20*x^3+16*x^5
+	-1+18*x^2-48*x^4+32*x^6
+	-7*x+56*x^3-112*x^5+64*x^7
+	1-32*x^2+160*x^4-256*x^6+128*x^8
+	9*x-120*x^3+432*x^5-576*x^7+256*x^9
+</pre>
+
+Except for the peculiar placement of semicolons, this code should be
+immediately understandable to <i>C</i>, or especially <i>awk</i>, programmers.
+
+<p>The language is extremely simple.  The only statement types
+assign values to variables, print values out and control
+execution using <tt>if</tt>, <tt>for</tt>, <tt>while</tt>, <tt>break</tt>
+and <tt>continue</tt> statements reminiscent of <i>C</i> or <i>awk</i>.
+
+<h4>Lexical structure</h4>
+
+<p>Few will be surprised to learn that <i>poly</i> breaks its input
+into a stream of tokens that are then parsed by a <i>yacc</i> grammar.
+The resulting parse trees are passed to an interpreter that does the
+appropriate computation.  A complete grammar is given at the end
+of this document.
+
+<p>White space and comments serve to separate
+tokens, and are otherwise ignored.  A comment begins with the sharp
+sign <tt>#</tt> and continues to the end of the line.
+
+<p>There are five main classes of tokens: names, reserved words, numbers,
+strings and punctuation.
+Names and key words are sequences of upper and lower-case letters,
+underscores and digits, the first of which must not be a digit.  The
+two cases are not equivalent, so <tt>X0</tt> and <tt>x0</tt>
+are two different names.  The reserved words are
+
+<pre>
+	break	coef	continue
+	deg	diff	do
+	else	for	if
+	int	print	while
+</pre>
+
+These may not be used as names.
+
+<p>A number is a sequence of one or more digits, possibly containing a
+decimal point, and possibly followed by an <tt>e</tt> or <tt>E</tt>
+and an optionally signed string of one or more digits.  Examples are
+
+<pre>
+	137			<!-- reciprocal of fine structure constant --> 
+	.45359237		<!-- pounds in a kilogram --> 
+	3.14159265358979323846	<!-- pi --> 
+	6.022169e+23		<!-- avogadro's number --> 
+	1.6021917E-19		<!-- electron charge, in coulombs --> 
+</pre>
+
+<p>A string is a sequence of characters surrounded by double-quotes,
+like <tt>"Result:&nbsp;%p\n"</tt>.
+In strings, <tt>\n</tt>, <tt>\b</tt>, <tt>\r</tt>, <tt>\t</tt>, <tt>\0</tt>
+and <tt>\\</tt> are escapes for newline, backspace,
+carriage return, tab, nul and backslash.  Strings are only used to specify a
+format in <tt>print</tt> statements.
+
+<p>The punctuation tokens recognized by <i>poly</i> are
+
+<pre>
+	-	--	+	++
+	*	/	=	==
+	<	<=	>	>=
+	^	'	,	;
+	[	]	(	)
+	{	}
+</pre>
+
+<h4>Expressions</h4>
+
+<p>The value of every expression is a multivariate polynomial with
+floating-point coefficients.  Someday I want to rewrite <i>poly</i>
+to use arbitrary-precision rational coefficients.
+
+<p>The simplest expressions are just numbers or names.  Depending on
+whether or not a name has previously been given a value (by an assignment
+statement, see below) it either stands for that value, or is a variable
+in a polynomial.  Thus the following sequence
+<pre>
+	print x;
+	x=y;
+	print x;
+</pre>
+prints
+<pre>
+	x
+	y
+</pre>
+At the first <tt>print</tt>, <tt>x</tt> has not yet been given a value,
+so the output is the first-degree polynomial <i>x</i>.  After the assignment
+<tt>x=y</tt>, <tt>x</tt> has a value, which the second <tt>print</tt> disgorges.
+
+<p>Having assigned a value to <tt>x</tt>, we may still wish to refer to
+the polynomial <i>x</i>.  We can do so by writing <tt>'x</tt>.  The quote
+prevents <tt>x</tt>'s value from being substituted for it.  Thus, the way
+to erase the definition of a variable is to write <tt>x='x;</tt>
+
+<p>Operators in expressions should mostly be familiar to C
+programmers.  The arithmetic operators <tt>+</tt>, <tt>-</tt>,
+(both binary and unary) <tt>*</tt> and <tt>/</tt> work as expected,
+with the caveat that the right operand of <tt>/</tt> must be a
+constant - I haven't implemented more general polynomial division,
+and in any case the result could not be guaranteed to be a polynomial.
+There is an exponentiation operator <tt>^</tt>, which is right-associative
+and higher precedence than <tt>*</tt> and <tt>/</tt>.  Of course, the exponent
+must be a non-negative integer, since the system cannot represent values
+that are not polynomials.
+<i>Poly</i> also has an almost complete suite of relational and logical
+operators.  The logical values <b>true</b> and <b>false</b> are represented
+by the constant polynomials 1 and 0.  As an operand of a logical operator,
+any non-zero polynomial is taken to be <b>true</b>.
+Relational operators
+<tt>&lt;=</tt>,
+<tt>&lt;</tt>,
+<tt>&gt;=</tt>,
+<tt>&gt;</tt>,
+<tt>==</tt>,
+<tt>!=</tt>
+work by subtracting their two operands.
+If the difference is a constant, <i>poly</i> does the appropriate sign test
+on the result.  Otherwise, the operation's value is <b>false</b>.
+The logical operators <tt>||</tt> and
+<tt>&amp;&amp;</tt> work as in C.  Logical not is inexplicably missing;
+<tt>B==0</tt> will have to substitute.
+
+<p><i>Poly</i> has a fairly powerful substitution operator that can substitute
+any polynomial for each of several variables.  For example,
+<pre>
+	print (x^5)[x=x+1];
+</pre>
+substitutes <i>x</i>+1 for <i>x</i> in <i>x</i><sup>5</sup>, giving (<i>x</i>+1)<sup>5</sup>, and prints the result:
+<pre>
+	1+5*x+10*x^2+10*x^3+5*x^4+x^5
+</pre>
+(The parentheses are required in the above example because the precedence
+of the <tt>[</tt>...<tt>]</tt> operator is higher than <tt>^</tt>.  Leave
+them out and it just does the substitution on <tt>5</tt>.)
+
+<p>Substitutions for more than one variable are done simultaneously.
+Thus this input
+<pre>
+	print (x+y^2)[x=y,y=x];
+	print (x+y^2)[x=y][y=x];
+</pre>
+prints
+<pre>
+	y+x^2
+	x+x^2
+</pre>
+The first line swaps <tt>x</tt> and <tt>y</tt> while the
+second changes <tt>x</tt> to <tt>y</tt> giving <tt>y+y^2</tt>
+and then changes all the <tt>y</tt>'s back to <tt>x</tt>'s.
+<p><i>Poly</i> has several built-in functions.
+These are
+<ul>
+<li><tt>int&nbsp;</tt> constructs the indefinite integral of
+its first argument with respect to its second, which must be the name
+of a variable.  Each application of <tt>int</tt> introduces a new
+constant of integration.
+<li><tt>diff</tt> takes the derivative of its first argument with respect
+to its second, which must be the name of a variable.
+<li><tt>deg&nbsp;</tt> examines its first argument for occurrences
+of its second argument, which must be the name of a variable, and
+returns the highest exponent with which it occurs.
+<li><tt>coef</tt>
+</ul>
+
+<h4>Statements</h4>
+
+<p>The <tt>poly</tt> grammar is designed so that statements are self-delimiting.
+<i>Poly</i> can always tell when a new statement is beginning, without the
+aid of an explicit statement delimiter.  Unfortunately,
+it can't tell that a statement has ended before reading the first token
+of the following statement.  For example when you type
+<tt>print&nbsp;(x+1)^5</tt>,
+<i>poly</i> can't tell that you're not going to continue on the
+next line with <tt>+y^4</tt>,
+so it has to just sit and wait for you to type more.  Therefore, at the
+top level (only!), statements must be terminated with a semicolon.
+This accounts for the odd look of the example in the introduction,
+where the <tt>for</tt> loop ends with a semicolon, but none of the
+statements within its body do.  I wish I knew a way to deal
+with this that simultaneously made life easier for the user and
+didn't tie the lexical and parsing parts of the program in knots.
+
+<p><i>Poly</i> has only a few statement types, some of which appeared
+undescribed in the examples above.  The simplest is the <tt>print</tt>
+statement, which appears in two forms:
+<pre>
+	print (x+1)^5;
+	print "Answer: %p; %p\n",
+		(x+y)*(x-y), (2.*x+y)^3;
+</pre>
+These output
+<pre>
+	1+5*x+10*x^2+10*x^3+5*x^4+x^5
+	Answer: -y^2+x^2; y^3+6*x*y^2+12*x^2*y+8*x^3
+</pre>
+The first form just prints an expression followed by a newline.
+In the second, extended, form, a format string is followed by a list
+of expressions.  Each occurrence of <tt>%p</tt> in the format string
+marks the position at which one of the expressions should be printed.
+In the second form no newline is printed unless it occurs in the format string.
+
+<p>Assignment statements come in a number of guises, the most straightforward
+of which we've already seen:
+<pre>
+	p=(x+5)^4;
+</pre>
+As you surely have already figured out, this just stores the result of
+evaluating the expression on the right of the <tt>=</tt> in a place
+identified by the name on the left.
+The other forms of assignment are just convenient abbreviations of
+the straighforward form.  Here they are in a list, paired with the forms
+that they abbreviate:
+
+<pre>
+	v+=e;	v=v+e;
+	v-=e;	v=v-e;
+	v*=e;	v=v*e;
+	v/=e;	v=v/e;
+	v^=e;	v=v^e;
+	v++;	v=v+1;
+	++v;	v=v+1;
+	v--;	v=v-1;
+	--v;	v=v-1;
+</pre>
+
+<p>compound
+
+<p>if
+
+<p>while
+
+<p>do while
+
+<p>for
+
+<p>break
+
+<p>continue
+
+<h4>Syntax</h4>
+<p>Below is a grammar, one production per line.
+In the grammar, all punctuation characters and lower-case terms
+are literal.  Terms in upper case are non-terminals.
+NUM, VAR and STRING represent number, name and string tokens
+and are not defined in the grammar.
+Operator precedence from low to high is:
+<pre>
+	||
+	&amp;&amp;
+	&lt;= &lt; &gt;= &gt;
+	== !=
+	+ -	(binary)
+	* /
+	^	(right associative)
+	+ -	(unary)
+	[ ]	(right associative)
+</pre>
+All operators are left-associative
+unless noted above, so  <tt>a-b+c</tt> means <tt>((a-b)+c)</tt>.
+The productions given for <tt>if</tt> statements are ambiguous.
+The resolution is, as usual, to tie each <tt>else</tt>
+clause to the closest preceding unmatched <tt>if</tt>.
+<pre>
+RUN:
+|	RUN STMT;
+STMT:	print EXPR
+|	print PLIST
+|	VAR=EXPR
+|	VAR+=EXPR
+|	VAR-=EXPR
+|	VAR*=EXPR
+|	VAR/=EXPR
+|	VAR^=EXPR
+|	VAR++
+|	++VAR
+|	VAR--
+|	--VAR
+|	{ STMTS }
+|	if(EXPR) STMT
+|	if(EXPR) STMT else STMT
+|	while(EXPR) STMT
+|	do STMT while(EXPR)
+|	for(STMTS; EXPR; STMTS) STMT
+|	break
+|	continue
+STMTS:
+|	STMT STMTS
+PLIST:	STRING
+|	PLIST, EXPR
+EXPR:	NUM
+|	VAR
+|	' VAR
+|	(EXPR)
+|	EXPR || EXPR
+|	EXPR &amp;&amp; EXPR
+|	EXPR&lt;EXPR
+|	EXPR&gt;EXPR
+|	EXPR&lt;=EXPR
+|	EXPR&gt;=EXPR
+|	EXPR==EXPR
+|	EXPR!=EXPR
+|	EXPR+EXPR
+|	EXPR-EXPR
+|	EXPR*EXPR
+|	EXPR/EXPR
+|	EXPR^EXPR
+|	-EXPR
+|	+EXPR
+|	int(EXPR, VAR)
+|	diff(EXPR, VAR)
+|	deg(EXPR, VAR)
+|	coef(EXPR, COEFS)
+|	EXPR[SUBS]
+SUBS:	SUB
+|	SUBS, SUB
+SUB:	VAR=EXPR
+COEFS:	COEF
+|	COEFS, COEF
+COEF:	VAR, EXPR
+</pre>
